@@ -28,9 +28,10 @@ sap.ui.define([
 			var mEntity1 = this.getOwnerComponent().getModel().getProperty("/mEntity1");
 			var mEntity2 = this.getOwnerComponent().getModel().getProperty("/mEntity2");
 
-			var oParams = {};
+			var oParams = { synchronizationMode : "None" };
 			oParams.json = true;
 			oParams.useBatch = true;
+			
 			var oModel = new sap.ui.model.odata.v2.ODataModel(mPath, oParams);
 			oModel.attachEvent("requestFailed", oDataFailed);
 
