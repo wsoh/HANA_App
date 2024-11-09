@@ -1,23 +1,22 @@
-PROCEDURE "get_po_header_data"( 
-	OUT EX_TOP_3_EMP_PO_COMBINED_CNT TABLE (
-		fullname NVARCHAR(256),
-		CREATE_CNT INTEGER,
-		CHANGE_CNT INTEGER,
-		COMBINED_CNT INTEGER))
-   LANGUAGE SQLSCRIPT
-   SQL SECURITY INVOKER
-   --DEFAULT SCHEMA <default_schema_name>
-   READS SQL DATA AS
-BEGIN
-   /*************************************
-       Write your procedure logic 
-   *************************************/
+FUNCTION "get_po_counts"( im_fdate DATE )
+       RETURNS TABLE (EMPLOYEEID NVARCHAR(10),
+	       FULLNAME NVARCHAR(256),
+	       CREATE_CNT INTEGER,
+	       CHANGE_CNT INTEGER,
+	       COMBINED_CNT INTEGER)
+       LANGUAGE SQLSCRIPT 
+       SQL SECURITY INVOKER AS 
+BEGIN 
+    /*****************************
+        Write your function logic
+    ****************************/
 PO_CREATE_CNT = 
 	SELECT COUNT(*) AS CREATE_CNT, "HISTORY.CREATEDBY.EMPLOYEEID" AS EID
     FROM "PO.Header" WHERE PURCHASEORDERID IN (
                      SELECT PURCHASEORDERID
                           FROM "PO.Item"
           WHERE "PRODUCT.PRODUCTID" IS NOT NULL)
+		AND MONTH("HISTORY.CREATEDAT") = MONTH(:im_fdate)       	
 	GROUP BY  "HISTORY.CREATEDBY.EMPLOYEEID";
 
 PO_CHANGE_CNT = 
@@ -26,10 +25,11 @@ PO_CHANGE_CNT =
                      SELECT PURCHASEORDERID
                           FROM "PO.Item"
           WHERE "PRODUCT.PRODUCTID" IS NOT NULL)
+		AND MONTH("HISTORY.CHANGEDAT") = MONTH(:im_fdate)       	
 	GROUP BY  "HISTORY.CHANGEDBY.EMPLOYEEID";
 
-EX_TOP_3_EMP_PO_COMBINED_CNT = 
-	SELECT "get_full_name"("NAME.FIRST", "NAME.MIDDLE", "NAME.LAST") as fullname,
+EMP_PO_COMBINED_CNT = 
+	SELECT EMPLOYEEID, "get_full_name"("NAME.FIRST", "NAME.MIDDLE", "NAME.LAST") as fullname,
 		CRCNT.CREATE_CNT, ChCNT.CHANGE_CNT, 
 		CRCNT.CREATE_CNT + ChCNT.CHANGE_CNT as combined_cnt
     FROM "MD.Employees" as emp
@@ -37,6 +37,8 @@ EX_TOP_3_EMP_PO_COMBINED_CNT =
     	on emp.employeeid = crcnt.EID
     	left outer join :PO_CHANGE_CNT AS ChCNT
     	on emp.employeeid = chcnt.EID
-    order by combined_cnt desc limit 3;
-   
-END
+    order by combined_cnt desc;
+      
+	RETURN SELECT * FROM :EMP_PO_COMBINED_CNT;
+	
+END;
